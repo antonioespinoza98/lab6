@@ -1,0 +1,87 @@
+---
+author: "Marco Espinoza"
+title: "lab 6"
+output: html_document
+---
+
+
+# lab de medidas repetidas
+
+
+
+```{r}
+load('sueño.Rdata')
+```
+
+```{r}
+beta0 = NULL
+beta1 = NULL
+ind = as.numeric(names(table(base$sujeto)))
+
+for(i in 1:18){
+    mod = lm(reac ~ dias, data = base[base$sujeto == ind[i],])
+    beta0[i] == mod$coef[1]
+    beta1[i] == mod$coef[2]
+}
+
+plot(beta1, beta0, pch = 18)
+abline(lm(beta0 ~ beta1, data = base))
+
+cor(beta0, beta1)
+```
+
+
+```{r}
+head(base)
+
+library(lattice)
+
+xyplot(reac ~ dias, groups = sujeto, type = "r", auto.key = list(columns = 18), data = base)
+```
+
+
+```{r}
+mod = lm(reac ~ dias, data = base)
+
+mod$coefficients
+```
+
+
+$$y_ij = \beta_0 + \beta_1 T + \beta_0i + \beta_iT + \epsilon_{ij}$$
+
+```{r}
+library(lme4)
+```
+
+```{r}
+mod2=lmer(reac~1+dias+(1+dias|sujeto),REML=F, data = base)
+mod3 = lmer(reac ~ 1 + dias + (1|sujeto) + (0 + dias|sujeto), REML = FALSE, data = base)
+
+anova(mod2,mod3,test="LRT")
+
+```
+
+```{r}
+mod2=lmer(reac~1+dias+(1+dias|sujeto),REML=T, data = base)
+mod3 = lmer(reac ~ 1 + dias + (1|sujeto) + (0 + dias|sujeto), REML = TRUE, data = base)
+
+anova(mod2,mod3,test="LRT")
+
+```
+
+
++ Ahora se quiere 
+
+```{r}
+mod4 = lmer(reac ~ 1 + dias + (1|sujeto), REML = F, data = base)
+
+anova(mod3, mod4, test = 'LRT')
+```
+
++ Los individuos tienen pendientes diferentes, en términos prácticos el gráfico dice que conforme pasan los días hay individuos que el tiempo de reacción es diferente. 
+
+```{r}
+mod5 = lmer(reac ~ 1 + dias + (1|sujeto) + (0 + dias|sujeto), data = base)
+
+summary(mod5)$coef
+```
