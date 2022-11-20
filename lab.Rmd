@@ -14,31 +14,57 @@ load('sueño.Rdata')
 ```
 
 ```{r}
-beta0 = NULL
-beta1 = NULL
-ind = as.numeric(names(table(base$sujeto)))
-
-for(i in 1:18){
-    mod = lm(reac ~ dias, data = base[base$sujeto == ind[i],])
-    beta0[i] == mod$coef[1]
-    beta1[i] == mod$coef[2]
+beta0=beta1=c()
+ind=as.numeric(names(table(base$sujeto)))
+for(i in 1:18) {
+mod=lm(reac~dias,base[base$sujeto==ind[i],])
+beta0[i]=mod$coef[1]
+beta1[i]=mod$coef[2]
 }
-
-plot(beta1, beta0, pch = 18)
-abline(lm(beta0 ~ beta1, data = base))
-
-cor(beta0, beta1)
 ```
 
+Haga las líneas de regresión en un solo gráfico, con la función xyplot de la librería
+`lattice`, indicando `type='r'`. Visualice si existe una relación entre los valores de las
+pendientes y los interceptos.
 
 ```{r}
-head(base)
-
 library(lattice)
 
-xyplot(reac ~ dias, groups = sujeto, type = "r", auto.key = list(columns = 18), data = base)
+xyplot(reac ~ dias, groups = sujeto, type = "r", data = base)
 ```
 
++ Si hubiera una correlación entre pendientes e interceptos, los que tienen 
+pendientes altas deberían de tener interceptos mayores o menores entre sí.
++ Parece que la pendiente alta, no necesariamente es un intercepto alto, entonces
+estamos viendo que puede no haber una *relación* entre intercepto y pendiente.
+
+```{r}
+xyplot(reac ~ dias|sujeto, type = 'r', data = base)
+```
+
+Haga un gráfico que relacione los interceptos de beta0 con las pendientes de beta1.
+Además obtenga el coeficiente de correlación de estos dos vectores.
+
+```{r}
+plot(beta1, beta0, pch = 18)
+abline(lm(beta0 ~ beta1))
+```
+
++ Beta1 son las pendientes, y son altas. Mientras que Beta0 son los interceptos, y podemos ver que 
+los que tienen pendientes altas, no necesariamente tiene interceptos altos. Con este gráfico podemos
+ver esto. 
+
++ Uno puede extraer los interceptos y las pendientes y las grafica uno contra otros. 
+
++ Si en caso, fueran muy pronunciados sea para abajo o para arriba. Esto quiere decir que 
+hay una alta correlación y que los interceptos y las pendientes no son independientes
+provienen de una normal bivariada porque hay una correlación que no es nula.
+
++ Si son desordenados, entonces eso quiere decir que no son independientes.
+
+Ajuste un modelo lineal ordinario con tiempo de reacción en función del tiempo (días)
+sin tomar en cuenta la tendencia en cada sujeto. Escriba la ecuación resultante, la cual
+deberá comparar más adelante con los resultados obtenidos en el modelo mixto.
 
 ```{r}
 mod = lm(reac ~ dias, data = base)
@@ -46,29 +72,68 @@ mod = lm(reac ~ dias, data = base)
 mod$coefficients
 ```
 
+$$y_ij = \beta_0 + \beta_1 T + \beta_0i + \beta_1iT + \epsilon_{ij}$$
 
-$$y_ij = \beta_0 + \beta_1 T + \beta_0i + \beta_iT + \epsilon_{ij}$$
++ Puede haber correlación, por lo que se puede plantear:
+    + $$\rho = 0 $$
+
+Se van a ajustar dos modelos: 1) un modelo mixto asumiendo que hay correlación
+entre las pendientes y los interceptos, 2) un modelo que asume que no hay correlación
+entre las pendientes y los interceptos. Ambos modelos se deben ajustar con
+máxima verosimilitud, pues la idea es compararlos con la prueba de razón de verosimilitud
+(LRT). Use la función lmer de la librería lme4. Para el primer modelo
+se pone la línea de tendencia general que se considera un efecto fijo, luego se toma
+el sujeto como efecto aleatorio y dentro de cada sujeto se estima una regresión.
+El 1 representa el intercepto y se puede omitir, pero aunque se omita siempre
+van a estimarse los interceptos: `lmer(reac~1+dias+(1+dias|sujeto),REML=F)` o
+`lmer(reac~dias+(dias|sujeto),REML=F)`. Se agrega REML=F para indicar que se haga
+el ajuste por máxima verosimilitud en vez de usar REML.
+
+$$ y_{ij} = \beta_0 + \beta_1 T + \beta_{0i} + \beta_{1i} T + e_{ij} $$
+
+
++ $\beta_{0i}$ es el cambio en el intercepto general debido al individuo
++ $\beta_{1i}$ Cambio en la pendiente general debido al individuo 
 
 ```{r}
 library(lme4)
 ```
 
 ```{r}
-mod2=lmer(reac~1+dias+(1+dias|sujeto),REML=F, data = base)
-mod3 = lmer(reac ~ 1 + dias + (1|sujeto) + (0 + dias|sujeto), REML = FALSE, data = base)
-
-anova(mod2,mod3,test="LRT")
-
+mod2=lmer(reac~ 1 + dias + (1 + dias|sujeto), REML=F, data = base)
 ```
+
+Obtenga el summary de este modelo y observe el valor de la correlación entre pendientes
+e interceptos.
+
+Al hacer `(1 + dias|sujeto)` La pendiente y el intercepto las está estimando dentro del sujeto al mismo
+tiempo, o de forma simultanea como si estuvieran *correlacionadas*. Para decirle que no haya 
+correlación, entonces usamos `(0 + dias|sujeto)`. 
 
 ```{r}
-mod2=lmer(reac~1+dias+(1+dias|sujeto),REML=T, data = base)
-mod3 = lmer(reac ~ 1 + dias + (1|sujeto) + (0 + dias|sujeto), REML = TRUE, data = base)
+summary(mod2)$varcor
+```
+
+Se obtiene una correlación la cual es muy baja como se esperaba de los gráficos.
+
+
+
+```{r}
+mod2=lmer(reac~ 1 + dias + (1 + dias|sujeto), data = base)
+
+mod3 = lmer(reac ~ 1 + dias + (1|sujeto) + (0 + dias|sujeto), data = base)
 
 anova(mod2,mod3,test="LRT")
 
 ```
 
+$\rho = 0$
+$\rho \neq 0$
+
++ Esto va a depender del tamaño de muestra, tenemos 18 individuos y la muestra por cada 
+individuo, que son 10. 
+
++ La velocidad en el que crece el tiempo de reacción, varía de inviduo a individuo.
 
 + Ahora se quiere 
 
@@ -80,8 +145,57 @@ anova(mod3, mod4, test = 'LRT')
 
 + Los individuos tienen pendientes diferentes, en términos prácticos el gráfico dice que conforme pasan los días hay individuos que el tiempo de reacción es diferente. 
 
+4. Estime el modelo escogido con REML para hacer las interpretaciones finales. Obtenga
+el summary del modelo y escriba la ecuación general.
+
+Compare los errores estándar de los coeficientes obtenidos con la regresión ordinaria y
+con el modelo mixto.
+
 ```{r}
 mod5 = lmer(reac ~ 1 + dias + (1|sujeto) + (0 + dias|sujeto), data = base)
 
 summary(mod5)$coef
 ```
+
++ La ecuación general es igual a la ordinaria con la regresión ordinaria y con el modelo mixto.
+
+```{r}
+matrix(c(summary(mod)$coef[,2],summary(mod5)$coef[,2]), ncol = 2,
+dimnames = list(tipo = c('Intercepto','dias'), Error = c('E.E 1','E.E 2')))
+```
+
++ A pesar de que el error estándar es más grande en el modelo mixto, lo que pasa es que 
+cómo antes no se suponía que eran independientes, pero no lo eran entonces estaban
+subestimando. 
+
+Obtenga intervalos de 95 % de confianza para los parámetros del modelo e interprételos.
+Use `confint(profile(mod))`. Aquí va a obtener primero los intevalos para las desviaciones
+estándar de los componentes aleatorios llamados .sig01 para los interceptos
+aleatorios y .sig02 para las pendientes aleatorias, seguida de la desviación estándar
+residual. Luego seguirán los términos de la parte fija que son el intercepto general y la
+pendiente general.
+
+```{r}
+confint(mod5)
+```
+
+El intercepto está entre 237 y 265, y la pendiente entre 7.33 y 13.60. 
+
+En este caso se espera con 95 % de confianza
+que, en promedio, para todos los conductores de la población, por cada día
+adicional el tiempo de reacción promedio aumente entre 7.3 y 13.6 milisegundos.
+
+```{r}
+xyplot(reac ~ dias, group = sujeto, type = c('p', 'r'), data = base)
+
+xyplot(reac ~ dias|sujeto, type = c('p', 'r'), data = base)
+```
+
++ La varianza de las pendientes es que tan diferentes son las inclinaciones de esas rectas. 
++ mientras que los interceptos se ven en los interceptos. Tiene sentido que si van de 0 a 20 entonces
+tiene sentido que la varianza sea pequeña.
+
++ Residual es la distancia del punto a la recta condicional al individuo. Cómo se obseva en el segundo
+gráfico. 
+
+# Ortodoncia
